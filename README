@@ -1,1 +1,4 @@
 This contains code that can run on the WIZnet W5300E01-ARM evaluation board.
+
+It is all pretty sketchy now as I am experiementing, trying to figure out how
+to make it work.

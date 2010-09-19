@@ -1,0 +1,7 @@
+To run this program, compile it with
+
+   make testprog
+
+Then transfer testprog to the board, make it executable and run it
+
+   testprog "How wizzy"

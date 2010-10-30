@@ -1,5 +1,5 @@
 /*
- * send3.c
+ * timer.c
  *
  *  Created on: Oct 29, 2010
  *      Author: lqu

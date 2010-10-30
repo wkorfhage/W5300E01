@@ -1,0 +1,3 @@
+'reset' must be executed before any operation on the W5300. You need do this only once. 
+
+'timer' will abort if W5300 is not in a working state (ID register doesn't read 0x5300). In this case, run 'reset' again.

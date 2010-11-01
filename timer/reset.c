@@ -195,9 +195,11 @@ int main(int argc, char* argv[]) {
 
 	unsigned short gateway[2] = { 0xC0A8, 0x0101 };
 	setGW(0, gpd, gateway);
+	setGW(1, gpd, gateway);
 
 	unsigned short subnet[2] = { 0xFFFF, 0xFF00 };
 	setSUBNET(0, gpd, subnet);
+	setSUBNET(1, gpd, subnet);
 
 	unsigned short ip0[2] = { 0xC0A8, 0x0105 };
 	unsigned short ip1[2] = { 0xC0A8, 0x0106 };

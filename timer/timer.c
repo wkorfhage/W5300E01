@@ -254,6 +254,10 @@ int main(int argc, char **argv) {
 	iwrite(1, gpd, 0x314, 192 << 8 | 168); //write dest IP
 	iwrite(1, gpd, 0x316, 1 << 8 | 5);
 
+	iwrite(1, gpd, 0x30C, 0x0008);
+	iwrite(1, gpd, 0x30E, 0xDCA0);
+	iwrite(1, gpd, 0x310, 0x0001);
+
 	long count = 0;
 	int i;
 	for (i = 0; i < 8 * 1024 / 2; i++) {
@@ -281,7 +285,7 @@ int main(int argc, char **argv) {
 
 		iwrite(0, gpd, 0x242, 0x1); //Command: open
 
-		iwrite(1, gpd, 0x302, 0x20); //SEND command
+		iwrite(1, gpd, 0x302, 0x21); //SEND_MAC command
 		/*
 		 * start timer
 		 */

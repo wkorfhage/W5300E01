@@ -11,6 +11,7 @@
 #define CON		0
 #define DATA	1
 #define UP		2
+#define GPC_OFFSET	0x20/4
 #define GPD_OFFSET	0x30/4
 
 typedef unsigned char uint8;
@@ -166,11 +167,16 @@ int main(int argc, char* argv[]) {
 		exit(-1);
 	}
 
+	vuint32 *gpc = gpio + GPC_OFFSET;
 	vuint32 *gpd = gpio + GPD_OFFSET;
 
 	printf("GPD is : %08X\n", gpd);
 	printf("GPDCON: %08X\n", gpd[CON]);
 	printf("GPDDATA: %08X\n", gpd[DATA]);
+
+	// reset and stop timer, stop relay
+	gpc[CON] = 0x00005555;
+	gpc[DATA] = 0; //reset
 
 	// hardware reset
 	gpd[CON] = 0x55555555;

@@ -1,7 +1,7 @@
 /*
  * timer.c
  *
- *  Created on: Oct 29, 2010
+ *  Created on: Nov 3, 2010
  *      Author: lqu
  */
 
@@ -237,55 +237,55 @@ int main(int argc, char **argv) {
 	}
 
 	/*
-	 * setup sending socket, SOCKET_5
+	 * setup sending socket, SOCKET_0, RAW MAC
 	 */
-	iwrite(1, gpd, 0x300, 0x2); //MR: UDP mode
-	iwrite(1, gpd, 0x30A, 5000); //source port
-	iwrite(1, gpd, 0x302, 0x1); //Command: open
-	while (0xFF & iread(1, gpd, 0x302))
+	iwrite(1, gpd, 0x200, 0x4); //MR: RAW MAC mode
+	iwrite(1, gpd, 0x20A, 5000); //source port
+	iwrite(1, gpd, 0x202, 0x1); //Command: open
+	while (0xFF & iread(1, gpd, 0x202))
 		;
 
-	while ((0xFF & iread(1, gpd, 0x308)) != 0x22)
-		//wait for UDP status (0x22)
+	while ((0xFF & iread(1, gpd, 0x208)) != 0x42)
+		//wait for MAC RAW status (0x42)
 		;
 
-	iwrite(1, gpd, 0x312, 5000); //dest port
+	iwrite(1, gpd, 0x212, 5000); //dest port
 
-	iwrite(1, gpd, 0x314, 192 << 8 | 168); //write dest IP
-	iwrite(1, gpd, 0x316, 1 << 8 | 5);
+	iwrite(1, gpd, 0x214, 192 << 8 | 168); //write dest IP
+	iwrite(1, gpd, 0x216, 1 << 8 | 5);
 
-	iwrite(1, gpd, 0x30C, 0x0008);
-	iwrite(1, gpd, 0x30E, 0xDCA0);
-	iwrite(1, gpd, 0x310, 0x0001);
+	iwrite(1, gpd, 0x20C, 0x0008);
+	iwrite(1, gpd, 0x20E, 0xDCA0);
+	iwrite(1, gpd, 0x210, 0x0001);
 
 	long count = 0;
 	int i;
 	for (i = 0; i < 8 * 1024 / 2; i++) {
-		iwrite(1, gpd, 0x32E, count++); //write packet content
+		iwrite(1, gpd, 0x22E, count++); //write packet content
 	}
 
-	iwrite(1, gpd, 0x320, 0);
-	iwrite(1, gpd, 0x322, 2); //write packet size
+	iwrite(1, gpd, 0x220, 0);
+	iwrite(1, gpd, 0x222, 64); //write packet size
 
 	int loop;
 	for (loop = 0; loop < repeat; loop++) {
 
 		/*
-		 * setup receiving socket, SOCKET_1, port 0x1388/5000
+		 * setup receiving socket, SOCKET_0, port 0x1388/5000
 		 */
-		iwrite(0, gpd, 0x240, 0x2); //MR: UDP mode
-		iwrite(0, gpd, 0x24A, 5000); //source port (0x1388)
+		iwrite(0, gpd, 0x200, 0x4); //MR: MAC RAW mode
+		iwrite(0, gpd, 0x20A, 5000); //source port (0x1388)
 
 		/*
 		 * set up BRDYR_3, thus start the timer
 		 */
 		iwrite(0, gpd, 0x6E, 0x0001); //buffer depth, set to 1 byte
-		iwrite(0, gpd, 0x6C, 0x0081); //enable, RX, low, socket 1
+		iwrite(0, gpd, 0x6C, 0x0080); //enable, RX, low, socket 0
 
 
-		iwrite(0, gpd, 0x242, 0x1); //Command: open
+		iwrite(0, gpd, 0x202, 0x1); //Command: open
 
-		iwrite(1, gpd, 0x302, 0x21); //SEND_MAC command
+		iwrite(1, gpd, 0x202, 0x21); //SEND_MAC command
 		/*
 		 * start timer
 		 */
@@ -294,7 +294,7 @@ int main(int argc, char **argv) {
 		gpc[DATA] = 0x3 << 3; //start
 
 
-		while (!iread(0, gpd, 0x26A))
+		while (!iread(0, gpd, 0x22A))
 			//wait for packets
 			;
 
@@ -371,13 +371,13 @@ int main(int argc, char **argv) {
 			fflush(filep);
 		}
 
-		iwrite(0, gpd, 0x242, 0x40); //command: RECV
+		iwrite(0, gpd, 0x202, 0x40); //command: RECV
 		while (0xFF & iread(0, gpd, 0x242))
 			;
-		iwrite(0, gpd, 0x242, 0x10); //command: CLOSE
-		while (0xFF & iread(0, gpd, 0x242))
+		iwrite(0, gpd, 0x202, 0x10); //command: CLOSE
+		while (0xFF & iread(0, gpd, 0x202))
 			;
-		while (0xFF & iread(0, gpd, 0x248))
+		while (0xFF & iread(0, gpd, 0x208))
 			//wait for the status to be closed
 			;
 

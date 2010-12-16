@@ -90,16 +90,16 @@ char lcd_ready(void)
 void lcd_clrscr(void)       
 {
   lcd_ready();
-  LcdCommandW = (unsigned char *) 0x01;
+  *LcdCommandW = (unsigned char) 0x01;
 }
 
 char lcd_init(void)
 {
   if((char)-1 ==lcd_ready()) return 0;
 
-  LcdCommandW = (unsigned char *) 0x38;
+  *LcdCommandW = (unsigned char) 0x38;
   mdelay(50);
-  LcdCommandW = (unsigned char *) 0x0C;
+  *LcdCommandW = (unsigned char) 0x0C;
   mdelay(50);
 
   lcd_clrscr();

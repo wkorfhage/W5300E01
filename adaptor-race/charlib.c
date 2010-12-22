@@ -105,7 +105,7 @@ char lcd_init(void)
   mdelay(50);
 	*LcdCommandW = (unsigned char) 0x06;
 	mdelay(50);
-	*LcdCommandW = (unsigned char) 0x0F;
+	*LcdCommandW = (unsigned char) 0x0C;
 	mdelay(50);
 
   lcd_clrscr();

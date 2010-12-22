@@ -37,6 +37,9 @@ int readFromUSBKeyboard(const char* device, char* name, int length) {
 	lcd_gotoxy(0, 1);
 	lcd_putch('>');
 	
+	//Enable the cursor, and make it blinking.
+	lcd_set_cursor_type(3);
+	
 	while(read(fd, buf, 3)) {
 		if (count == 32) {
 			break;
@@ -81,6 +84,10 @@ int readFromUSBKeyboard(const char* device, char* name, int length) {
 		count = length - 1;
 	}
 	name[count] = 0;
+	
+	//Disable the cursor.
+	lcd_set_cursor_type(0);
+	
 	// printf("\nread from keyboard: %s\n", name);
 	lcd_puts("bye!");
 	close(fd);

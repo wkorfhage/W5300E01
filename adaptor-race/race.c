@@ -8,13 +8,17 @@
 #include "keyboardread.h"
 #include "charlib.h"
 
+int isBlinking;
+
 void *blink(void* args) {
 	vuint32 *led = args;
-	while(1) {
+	while(isBlinking) {
 		led[DATA] ^= 1<<10;
 		usleep(500000);
 	}
 }
+
+char bbb[100];
 
 int main() {
 	vuint32 *gpio = get_gpio_base();
@@ -35,37 +39,73 @@ int main() {
 	
 	lcd_puts("Press Button SW3");
 	
+	isBlinking = 1;
 	pthread_t blinking;
-	if (pthread_create(&blinking, NULL, blink, gpg)) {
+	if (pthread_create(&blinking, NULL, blink, (void *)gpg)) {
 		printf("pthread_create() failed\n");
 		abort();
 	}
 	
-	gpd[DATA] = 0;		//reset timer
+	gpd[DATA] = 0;
+	gpd[DATA] |= 1 << 10;	//stop counting
+	gpd[DATA] &= ~(1 << 8);	//reset
 	
-	while (gpg[DATA] & 1 << 8);
+	printf("now reply off\n");
+	fgets(bbb, 100, stdin);
 	
-	gpd[DATA] |= 1 << 8;
-	gpd[DATA] |= 1 << 10;
+	gpd[DATA] |= 1 << 9;	//clock into reg.
+	gpd[DATA] &= ~(1 << 9);
+	gpd[DATA] |= 1 << 9;	//clock into reg.
+	gpd[DATA] &= ~(1 << 9);
 	
-	
-//	waitForButton(gpg+DATA, 8);
-	while (gpg[DATA] & 1 << 8);
-	
-	int x;
-	for (x = 0; x < 8; x++) {
-		
+	int i;
+	for (i=0; i<8; i++) {
 		gpd[DATA] &= ~(7 << 12);
-		gpd[DATA] |= x << 12;
-		gpd[DATA] |= 1 << 9;
-		gpd[DATA] &= ~(1 << 9);
+		gpd[DATA] |= i << 12;
 		
-		printf("%x\n", gpd[DATA]);
+		printf("after reset, %04x\n", gpd[DATA]);
 	}
 	
+
+	gpd[DATA] |= 1 << 8;
 	
-	//pthread_kill(blinking, 9);
-	gpg[DATA] = 1 << 10;		//turn off led1
+	printf("press button to make timer ready\n");
+	fgets(bbb, 100, stdin);
+	gpd[DATA] &= ~(1 << 10);	//start counting
+	
+	printf("press button to start counting\n");
+	fgets(bbb, 100, stdin);
+	
+	printf("manually counting...\n");
+	
+//	gpd[DATA= |= 1 << 15;
+	
+	//manually count
+	int xxx = 30;
+	while(xxx--) {
+		gpd[DATA] |= 1 << 11;
+		gpd[DATA] &= ~(1 << 11);
+		gpd[DATA] |= 1 << 11;
+		gpd[DATA] &= ~(1 << 11);
+	}
+//	waitForButton(gpg+DATA, 8);
+	//while (gpg[DATA] & 1 << 8);
+	
+	gpd[DATA] |= 1 << 9;
+	gpd[DATA] &= ~(1 << 9);
+	
+	for (i = 0; i < 8; i++) {
+		printf("press to display");
+		fgets(bbb, 100, stdin);
+		gpd[DATA] &= ~(7 << 12);
+		gpd[DATA] |= i << 12;
+
+		
+		printf("%04x\n", gpd[DATA]);
+	}
+	
+	isBlinking = 0;
+	gpg[DATA] |= 1 << 10;		//turn off led1
 	
 	char buf[64];
 	lcd_puts("type the name:");

@@ -15,13 +15,13 @@
 #define DATA	1
 #define UP		2
 #define GPA_OFFSET	0
-#define GPB_OFFSET	0x10
-#define GPC_OFFSET	0x20
-#define GPD_OFFSET	0x30
-#define GPE_OFFSET	0x40
-#define GPF_OFFSET	0x50
-#define GPG_OFFSET	0x60
-#define GPH_OFFSET	0x70
+#define GPB_OFFSET	0x10/4
+#define GPC_OFFSET	0x20/4
+#define GPD_OFFSET	0x30/4
+#define GPE_OFFSET	0x40/4
+#define GPF_OFFSET	0x50/4
+#define GPG_OFFSET	0x60/4
+#define GPH_OFFSET	0x70/4
 
 typedef unsigned char uint8;
 typedef unsigned short uint16;

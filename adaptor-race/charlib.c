@@ -64,7 +64,7 @@ int charinit()
     fd = open("/dev/mem", O_RDWR);
     printf ("mem opens with fd %d\n", fd);
     if (fd < 0) {
-	return 1;
+		exit(-1);
     }
     LcdCommandW = (unsigned char *) mmap((void *) 0, (size_t) 4, 
 	PROT_READ | PROT_WRITE, MAP_SHARED, fd, LCD_BASEADDR);

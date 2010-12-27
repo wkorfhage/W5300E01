@@ -27,15 +27,7 @@ int readFromUSBKeyboard(const char* device, char* name, int length) {
 	
 	int count = 0;
 	
-	if (charinit()) 
-	{
-		perror("Init didn't work: ");
-		exit(-1);
-	}
-	
-	lcd_puts("type the name:");
-	lcd_gotoxy(0, 1);
-	lcd_putch('>');
+	//LCD should be initialized already
 	
 	//Enable the cursor, and make it blinking.
 	lcd_set_cursor_type(3);
@@ -94,7 +86,7 @@ int readFromUSBKeyboard(const char* device, char* name, int length) {
 	return 0;
 }
 
-int main(int argc, char* argv[]) {
+int testKeyBoardRead(int argc, char* argv[]) {
 	char buf[20];
 	readFromUSBKeyboard("./kb0", buf, 20);
 	printf("%s\n", buf);

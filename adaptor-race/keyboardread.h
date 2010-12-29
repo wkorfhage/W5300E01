@@ -13,6 +13,9 @@
 #ifndef __KEYBOARDREAD_NTKN__
 #define __KEYBOARDREAD_NTKN__
 
-int readFromUSBKeyboard(const char* device, char* name, int length);
+
+int init_keyboard(const char* device);
+int close_keyboard();
+int readFromUSBKeyboard(char* name, int length);
 
 #endif

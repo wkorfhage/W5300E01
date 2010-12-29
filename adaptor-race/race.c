@@ -1,26 +1,73 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <pthread.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <linux/kdev_t.h>
+#include <sys/socket.h>
+#include <netdb.h>
 
 #include "ntkn_w5300e01.h"
 #include "button.h"
 #include "gpio.h"
 #include "keyboardread.h"
 #include "charlib.h"
+#include "leds_ctrl.h"
+#include "adapter.h"
 
-int isBlinking;
+int i, n;
+char buf[256];
 
-void *blink(void* args) {
-	vuint32 *led = args;
-	while(isBlinking) {
-		led[DATA] ^= 1<<10;
-		usleep(500000);
+Adapter adapters[4];
+Adapter *adp[4];
+
+struct  sockaddr_in sad; /* structure to hold an IP address     */
+int     clientSocket;    /* socket descriptor                   */ 
+struct  hostent  *ptrh;  /* pointer to a host table entry       */
+
+char    *host = "192.168.1.2";	/* pointer to host name	*/
+int     port = 5000;			/* protocol port number	*/  
+
+void send_record(const char* record) {
+		
+	/* Create a socket. */
+
+	clientSocket = socket(PF_INET, SOCK_DGRAM, 0);
+	if (clientSocket < 0) {
+		fprintf(stderr, "socket creation failed\n");
+		exit(1);
 	}
+
+	/* determine the server's address */
+
+	memset((char *)&sad,0,sizeof(sad)); /* clear sockaddr structure */
+	sad.sin_family = AF_INET;           /* set family to Internet     */
+	sad.sin_port = htons((u_short)port);
+	ptrh = gethostbyname(host); /* Convert host name to equivalent IP address and copy to sad. */
+	if ( ((char *)ptrh) == NULL ) {
+		fprintf(stderr,"invalid host: %s\n", host);
+		exit(1);
+	}
+	memcpy(&sad.sin_addr, ptrh->h_addr, ptrh->h_length);
+
+	/* Send the sentence to the server  */
+	n=sendto(clientSocket, record, strlen(record)+1, 0, (struct sockaddr *) &sad, sizeof(struct sockaddr));
+	printf("Client sent %d bytes to the server\n", n);
+	/* Close the socket. */
+
+	close(clientSocket);
 }
 
-char bbb[100];
-
-int main() {
+int main(int argc, char *argv[]) {
+	
+	
+	printf("initializing...\n");
+	for (i=0; i<4; i++) {
+		adp[i] = adapters + i;
+		adp[i]->position = i;
+	}
+		
 	vuint32 *gpio = get_gpio_base();
 	vuint32 *gpc = gpio + GPC_OFFSET;
 	vuint32 *gpd = gpio + GPD_OFFSET;
@@ -30,94 +77,184 @@ int main() {
 	gpd[CON] = 0x55550000;
 	gpg[CON] = 0x55500000;
 	
-	//led1 on
-	gpg[DATA] &= ~(1 << 10);
-	//led2 off
-	gpg[DATA] |= 1 << 11;
-	
-	charinit();
-	
-	lcd_puts("Press Button SW3");
-	
-	isBlinking = 1;
-	pthread_t blinking;
-	if (pthread_create(&blinking, NULL, blink, (void *)gpg)) {
+
+	pthread_t led_ctrl_threads;
+	color = 0xFF;
+	blink = 0x00;
+
+	if (pthread_create(&led_ctrl_threads, NULL, led_run, (void *)(gpc+DATA))) {
 		printf("pthread_create() failed\n");
 		abort();
 	}
 	
-	gpd[DATA] = 0;
-	gpd[DATA] |= 1 << 10;	//stop counting
-	gpd[DATA] &= ~(1 << 8);	//reset
+	charinit();
 	
-	printf("now reply off\n");
-	fgets(bbb, 100, stdin);
-	
-	gpd[DATA] |= 1 << 9;	//clock into reg.
-	gpd[DATA] &= ~(1 << 9);
-	gpd[DATA] |= 1 << 9;	//clock into reg.
-	gpd[DATA] &= ~(1 << 9);
-	
-	int i;
-	for (i=0; i<8; i++) {
-		gpd[DATA] &= ~(7 << 12);
-		gpd[DATA] |= i << 12;
+	//TODO check USB
+	i = mknod("/dev/kb0", S_IFCHR, MKDEV(252, 0));
+	printf("mknod returned %d\n", i);
+	while (init_keyboard("/dev/kb0")) {
+		lcd_clrscr();
+		lcd_gotoxy(0, 0);
+		lcd_puts("must connect");
+		lcd_gotoxy(0, 1);
+		lcd_puts("USB keyboard");
+		sleep(1);
+	}
 		
-		printf("after reset, %04x\n", gpd[DATA]);
-	}
 	
+	//TODO check network
+	
+	/* 
+	 *	connect adapters, input names
+	 */
+	for (i=0; i<4; i++) {
+		color &= ~(3 << (i*2));	//clear led[i]
+		blink &= ~(3 << (i*2));	
+		color |= 2 << (i*2);	//RED
+		blink |= 2 << (i*2);	//BLINKING
 
-	gpd[DATA] |= 1 << 8;
-	
-	printf("press button to make timer ready\n");
-	fgets(bbb, 100, stdin);
-	gpd[DATA] &= ~(1 << 10);	//start counting
-	
-	printf("press button to start counting\n");
-	fgets(bbb, 100, stdin);
-	
-	printf("manually counting...\n");
-	
-//	gpd[DATA= |= 1 << 15;
-	
-	//manually count
-	int xxx = 30;
-	while(xxx--) {
-		gpd[DATA] |= 1 << 11;
-		gpd[DATA] &= ~(1 << 11);
-		gpd[DATA] |= 1 << 11;
-		gpd[DATA] &= ~(1 << 11);
+		lcd_clrscr();	
+		lcd_gotoxy(0, 0);
+		lcd_puts("Install P.S.");
+		lcd_gotoxy(0, 1);
+		lcd_puts("then hit Btn");
+
+		while ((gpc[DATA] & (1 << i)) == 0);
+
+		color |= 3 << (i*2);	//ORANGE
+		blink |= 3 << (i*2);	//BLINKING
+		
+		lcd_clrscr();
+		lcd_gotoxy(0, 0);
+		lcd_puts("type its name:");
+		lcd_gotoxy(0, 1);
+		lcd_putch('>');
+		while(readFromUSBKeyboard(adp[i]->name, 20) == 0)
+			;
+		printf("%s\n", adp[i]->name);
+
+		color &= ~(3 << (i*2));	
+		color |= 1 << (i*2);	//GREEN
+		blink &= ~(3 << (i*2));	//NO BLINKING
+			
 	}
+	
+	lcd_clrscr();
+	lcd_gotoxy(0, 0);
+	lcd_puts("Press a key to");
+	lcd_gotoxy(0, 1);
+	lcd_puts("start race");
+	readFromUSBKeyboard(buf, 1);
+
+	
+	lcd_clrscr();
+	lcd_gotoxy(0, 0);
+	lcd_puts("running...");
+
+
+	/*
+	 *	start the timer, run the race
+	 */
+	
+	gpd[DATA] = 0;
+	gpd[DATA] |= 1 << 10;	//stop counting, COUNT high
+	gpd[DATA] &= ~(1 << 8);	//reset, RESET low
+	sleep(1);				//wait for the registers to discharge
+	
+//	gpd[DATA] |= 1 << 9;	//clock into reg.
+//	gpd[DATA] &= ~(1 << 9);
+//	gpd[DATA] |= 1 << 9;	//clock into reg.
+//	gpd[DATA] &= ~(1 << 9);
+	
+//	for (i=0; i<8; i++) {
+//		gpd[DATA] &= ~(7 << 12);
+//		gpd[DATA] |= i << 12;
+//		
+//		printf("after reset, %04x\n", gpd[DATA]);
+//	}
+	
+	gpd[DATA] |= 1 << 8;	//enable, RESET high
+	gpd[DATA] &= ~(1 << 10);	//start counting, COUNT low
+	
+//	printf("manually counting...\n");
+//	for (i=0; i<30; i++) {	
+//		gpd[DATA] |= 1 << 11;
+//		gpd[DATA] &= ~(1 << 11);
+//		gpd[DATA] |= 1 << 11;
+//		gpd[DATA] &= ~(1 << 11);
+//	}
 //	waitForButton(gpg+DATA, 8);
-	//while (gpg[DATA] & 1 << 8);
+//	while (gpg[DATA] & 1 << 8);
+	
+	
+	sleep(1);		//wait for the counters to be stable
 	
 	gpd[DATA] |= 1 << 9;
 	gpd[DATA] &= ~(1 << 9);
 	
-	for (i = 0; i < 8; i++) {
-		printf("press to display");
-		fgets(bbb, 100, stdin);
-		gpd[DATA] &= ~(7 << 12);
-		gpd[DATA] |= i << 12;
-
+	for (i = 0; i < 4; i++) {
+		int c = 0;
 		
-		printf("%04x\n", gpd[DATA]);
+		gpd[DATA] &= ~(7 << 12);
+		gpd[DATA] |= (2*i) << 12;
+		c |= gpd[DATA] & 0xFF;
+		
+		gpd[DATA] &= ~(7 << 12);
+		gpd[DATA] |= (2*i+1) << 12;
+		c |= (gpd[DATA] & 0xFF) << 8;
+		
+		adp[i]->count = c;
 	}
 	
-	isBlinking = 0;
-	gpg[DATA] |= 1 << 10;		//turn off led1
+	//relay off, touching the registers should not burn me now
+	gpd[DATA] |= 1 << 10;
+
 	
-	char buf[64];
-	lcd_puts("type the name:");
-	lcd_gotoxy(0, 1);
-	lcd_putch('>');
+	lcd_clrscr();
+	lcd_gotoxy(0, 0);
+	lcd_puts("Done!");
+
+	/**
+	 *	sort()
+	 */
+	adapter_sort(adp);
 	
-	readFromUSBKeyboard("./kb0", buf, 64);
-	printf("%s\n", buf);
+	printf("after sorting\n");
+	for (i=0; i<4; i++) {
+		adapter_print(adp[i]);
+	}
+		
+	/**
+	 *	change leds
+	 */
+	blink = 0;	//NO BLINK
+	color = 0;	//OFF
+	for (i=0; i<4; i++) {
+		if (i<2) {
+			color |= 1 << (2 * (adp[i]->position));
+		} else {
+			color |= 2 << (2 * (adp[i]->position));
+		}
+	}
 	
-	gpg[DATA] &= ~(1 << 10);	//turn on led1
+	sleep (1);
 	
-	//run race
+	if (argc > 1) {
+		/* Extract host-name from command-line argument */
+		host = argv[1];         /* if host argument specified   */
+	}
+	
+	if (argc > 2) {
+		/* Extract port number  from command-line argument */
+		port = atoi(argv[2]);   /* convert to binary            */
+	}
+	
+	for (i=0; i<4; i++) {
+		int min_count = adp[0]->count;
+		sprintf(buf, " , %s, %d, %d, %d", adp[i]->name, adp[i]->count, adp[i]->count - min_count, i);
+		send_record(buf);
+	}
 	
 	return 0;
+
 }

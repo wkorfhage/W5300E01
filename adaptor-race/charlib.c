@@ -127,10 +127,10 @@ void lcd_gotoxy(unsigned char x,	unsigned char y)
 
 char * lcd_puts(char* str)
 {
-  printf("Sending \"%s\" to LCD\n", str);fflush(stdout);
+//  printf("Sending \"%s\" to LCD\n", str);fflush(stdout);
   unsigned char i;
 
-  lcd_clrscr();
+//  lcd_clrscr();
   for (i=0; str[i] != '\0'; i++){
     lcd_ready();
     *LcdDataW = (unsigned char) str[i];

@@ -17,7 +17,7 @@
 #include "adapter.h"
 #include "rtc.h"
 
-int i, n;
+int i, j, n;
 char buf[256];
 
 Adapter adapters[4];
@@ -104,9 +104,9 @@ int main(int argc, char *argv[]) {
 	while (init_keyboard("/dev/kb0")) {
 		lcd_clrscr();
 		lcd_gotoxy(0, 0);
-		lcd_puts("must connect");
+		lcd_puts("Must Connect");
 		lcd_gotoxy(0, 1);
-		lcd_puts("USB keyboard");
+		lcd_puts("USB Keyboard");
 		sleep(1);
 	}
 	
@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
 		color |= 2 << (i*2);	//RED
 		blink |= 2 << (i*2);	//BLINKING
 		
-		lcd_clrscr();	
+		lcd_clrscr();
 		lcd_gotoxy(0, 0);
 		lcd_puts("Install P.S.");
 		lcd_gotoxy(0, 1);
@@ -150,15 +150,15 @@ int main(int argc, char *argv[]) {
 	
 	lcd_clrscr();
 	lcd_gotoxy(0, 0);
-	lcd_puts("Press a key to");
+	lcd_puts("Press a Key to");
 	lcd_gotoxy(0, 1);
-	lcd_puts("start race");
+	lcd_puts("Start Race");
 	readFromUSBKeyboard(buf, 1);
 	
 	
 	lcd_clrscr();
 	lcd_gotoxy(0, 0);
-	lcd_puts("running...");
+	lcd_puts("Running...");
 	
 	
 	/*
@@ -195,6 +195,12 @@ int main(int argc, char *argv[]) {
 	//	waitForButton(gpg+DATA, 8);
 	//	while (gpg[DATA] & 1 << 8);
 	
+	/**
+	 *	read if connected
+	 */
+//	while (1) {
+//		printf("%x\n", gpc[DATA]);
+//	}
 	
 	sleep(1);		//wait for the counters to be stable
 	
@@ -264,6 +270,173 @@ int main(int argc, char *argv[]) {
 		send_record(buf);
 	}
 	
+	
+	
+	while (1) {
+		
+	/**
+	 *	Replace power supplies
+	 */
+	
+		for (j=2; j<4; j++) {
+			i = adp[j]->position;
+			
+			color &= ~(3 << (i*2));	//clear led[i]
+			blink &= ~(3 << (i*2));	
+			color |= 2 << (i*2);	//RED
+			blink |= 2 << (i*2);	//BLINKING
+			
+			lcd_clrscr();	
+			lcd_gotoxy(0, 0);
+			lcd_puts("Replace P.S.");
+			lcd_gotoxy(0, 1);
+			lcd_puts("Then Hit Button");
+			
+			while ((gpc[DATA] & (1 << i)) == 0);
+			
+			color |= 3 << (i*2);	//ORANGE
+			blink |= 3 << (i*2);	//BLINKING
+			
+			lcd_clrscr();
+			lcd_gotoxy(0, 0);
+			lcd_puts("Type Its Name:");
+			lcd_gotoxy(0, 1);
+			lcd_putch('>');
+			while(readFromUSBKeyboard(adp[i]->name, 20) == 0)
+				;
+			printf("%s\n", adp[i]->name);
+			
+			color &= ~(3 << (i*2));	
+			color |= 1 << (i*2);	//GREEN
+			blink &= ~(3 << (i*2));	//NO BLINKING
+			
+		}
+	
+		lcd_clrscr();
+		lcd_gotoxy(0, 0);
+		lcd_puts("Press a Key to");
+		lcd_gotoxy(0, 1);
+		lcd_puts("Start Race");
+		readFromUSBKeyboard(buf, 1);
+		
+		
+		lcd_clrscr();
+		lcd_gotoxy(0, 0);
+		lcd_puts("running...");
+		
+		
+		/*
+		 *	start the timer, run the race
+		 */
+		
+		gpd[DATA] = 0;
+		gpd[DATA] |= 1 << 10;	//stop counting, COUNT high
+		gpd[DATA] &= ~(1 << 8);	//reset, RESET low
+		usleep(500000);				//wait for the registers to discharge
+		
+		//	gpd[DATA] |= 1 << 9;	//clock into reg.
+		//	gpd[DATA] &= ~(1 << 9);
+		//	gpd[DATA] |= 1 << 9;	//clock into reg.
+		//	gpd[DATA] &= ~(1 << 9);
+		
+		//	for (i=0; i<8; i++) {
+		//		gpd[DATA] &= ~(7 << 12);
+		//		gpd[DATA] |= i << 12;
+		//		
+		//		printf("after reset, %04x\n", gpd[DATA]);
+		//	}
+		
+		gpd[DATA] |= 1 << 8;	//enable, RESET high
+		gpd[DATA] &= ~(1 << 10);	//start counting, COUNT low
+		
+		//	printf("manually counting...\n");
+		//	for (i=0; i<30; i++) {	
+		//		gpd[DATA] |= 1 << 11;
+		//		gpd[DATA] &= ~(1 << 11);
+		//		gpd[DATA] |= 1 << 11;
+		//		gpd[DATA] &= ~(1 << 11);
+		//	}
+		//	waitForButton(gpg+DATA, 8);
+		//	while (gpg[DATA] & 1 << 8);
+		
+		/**
+		 *	read if connected
+		 */
+		//	while (1) {
+		//		printf("%x\n", gpc[DATA]);
+		//	}
+		
+		sleep(1);		//wait for the counters to be stable
+		
+		gpd[DATA] |= 1 << 9;
+		gpd[DATA] &= ~(1 << 9);
+		
+		for (i = 0; i < 4; i++) {
+			int c = 0;
+			
+			gpd[DATA] &= ~(7 << 12);
+			gpd[DATA] |= (2*i) << 12;
+			c |= gpd[DATA] & 0xFF;
+			
+			gpd[DATA] &= ~(7 << 12);
+			gpd[DATA] |= (2*i+1) << 12;
+			c |= (gpd[DATA] & 0xFF) << 8;
+			
+			adp[i]->count = c;
+		}
+		
+		//relay off, touching the registers should not burn me now
+		gpd[DATA] |= 1 << 10;
+		
+		
+		lcd_clrscr();
+		lcd_gotoxy(0, 0);
+		lcd_puts("Done!");
+		
+		/**
+		 *	sort()
+		 */
+		adapter_sort(adp);
+		
+		printf("after sorting\n");
+		for (i=0; i<4; i++) {
+			adapter_print(adp[i]);
+		}
+		
+		/**
+		 *	change leds
+		 */
+		blink = 0;	//NO BLINK
+		color = 0;	//OFF
+		for (i=0; i<4; i++) {
+			if (i<2) {
+				color |= 1 << (2 * (adp[i]->position));
+			} else {
+				color |= 2 << (2 * (adp[i]->position));
+			}
+		}
+		
+		sleep (1);
+		
+		if (argc > 1) {
+			/* Extract host-name from command-line argument */
+			host = argv[1];         /* if host argument specified   */
+		}
+		
+		if (argc > 2) {
+			/* Extract port number  from command-line argument */
+			port = atoi(argv[2]);   /* convert to binary            */
+		}
+		
+		for (i=0; i<4; i++) {
+			int min_count = adp[0]->count;
+			sprintf(buf, " , %s, %d, %d, %d", adp[i]->name, adp[i]->count, adp[i]->count - min_count, i);
+			send_record(buf);
+		}
+		
+	}
+	
+	//should never reach here
 	return 0;
 	
 }

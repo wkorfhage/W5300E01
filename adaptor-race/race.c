@@ -30,17 +30,17 @@ char    *host = "192.168.1.2";	/* pointer to host name	*/
 int     port = 5000;			/* protocol port number	*/  
 
 void send_record(const char* record) {
-		
+	
 	/* Create a socket. */
-
+	
 	clientSocket = socket(PF_INET, SOCK_DGRAM, 0);
 	if (clientSocket < 0) {
 		fprintf(stderr, "socket creation failed\n");
 		exit(1);
 	}
-
+	
 	/* determine the server's address */
-
+	
 	memset((char *)&sad,0,sizeof(sad)); /* clear sockaddr structure */
 	sad.sin_family = AF_INET;           /* set family to Internet     */
 	sad.sin_port = htons((u_short)port);
@@ -50,12 +50,12 @@ void send_record(const char* record) {
 		exit(1);
 	}
 	memcpy(&sad.sin_addr, ptrh->h_addr, ptrh->h_length);
-
+	
 	/* Send the sentence to the server  */
 	n=sendto(clientSocket, record, strlen(record)+1, 0, (struct sockaddr *) &sad, sizeof(struct sockaddr));
 	printf("Client sent %d bytes to the server\n", n);
 	/* Close the socket. */
-
+	
 	close(clientSocket);
 }
 
@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
 		adp[i] = adapters + i;
 		adp[i]->position = i;
 	}
-		
+	
 	vuint32 *gpio = get_gpio_base();
 	vuint32 *gpc = gpio + GPC_OFFSET;
 	vuint32 *gpd = gpio + GPD_OFFSET;
@@ -77,11 +77,11 @@ int main(int argc, char *argv[]) {
 	gpd[CON] = 0x55550000;
 	gpg[CON] = 0x55500000;
 	
-
+	
 	pthread_t led_ctrl_threads;
 	color = 0xFF;
 	blink = 0x00;
-
+	
 	if (pthread_create(&led_ctrl_threads, NULL, led_run, (void *)(gpc+DATA))) {
 		printf("pthread_create() failed\n");
 		abort();
@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
 		lcd_puts("USB keyboard");
 		sleep(1);
 	}
-		
+	
 	
 	//TODO check network
 	
@@ -112,15 +112,15 @@ int main(int argc, char *argv[]) {
 		blink &= ~(3 << (i*2));	
 		color |= 2 << (i*2);	//RED
 		blink |= 2 << (i*2);	//BLINKING
-
+		
 		lcd_clrscr();	
 		lcd_gotoxy(0, 0);
 		lcd_puts("Install P.S.");
 		lcd_gotoxy(0, 1);
 		lcd_puts("then hit Btn");
-
+		
 		while ((gpc[DATA] & (1 << i)) == 0);
-
+		
 		color |= 3 << (i*2);	//ORANGE
 		blink |= 3 << (i*2);	//BLINKING
 		
@@ -132,11 +132,11 @@ int main(int argc, char *argv[]) {
 		while(readFromUSBKeyboard(adp[i]->name, 20) == 0)
 			;
 		printf("%s\n", adp[i]->name);
-
+		
 		color &= ~(3 << (i*2));	
 		color |= 1 << (i*2);	//GREEN
 		blink &= ~(3 << (i*2));	//NO BLINKING
-			
+		
 	}
 	
 	lcd_clrscr();
@@ -145,13 +145,13 @@ int main(int argc, char *argv[]) {
 	lcd_gotoxy(0, 1);
 	lcd_puts("start race");
 	readFromUSBKeyboard(buf, 1);
-
+	
 	
 	lcd_clrscr();
 	lcd_gotoxy(0, 0);
 	lcd_puts("running...");
-
-
+	
+	
 	/*
 	 *	start the timer, run the race
 	 */
@@ -161,30 +161,30 @@ int main(int argc, char *argv[]) {
 	gpd[DATA] &= ~(1 << 8);	//reset, RESET low
 	sleep(1);				//wait for the registers to discharge
 	
-//	gpd[DATA] |= 1 << 9;	//clock into reg.
-//	gpd[DATA] &= ~(1 << 9);
-//	gpd[DATA] |= 1 << 9;	//clock into reg.
-//	gpd[DATA] &= ~(1 << 9);
+	//	gpd[DATA] |= 1 << 9;	//clock into reg.
+	//	gpd[DATA] &= ~(1 << 9);
+	//	gpd[DATA] |= 1 << 9;	//clock into reg.
+	//	gpd[DATA] &= ~(1 << 9);
 	
-//	for (i=0; i<8; i++) {
-//		gpd[DATA] &= ~(7 << 12);
-//		gpd[DATA] |= i << 12;
-//		
-//		printf("after reset, %04x\n", gpd[DATA]);
-//	}
+	//	for (i=0; i<8; i++) {
+	//		gpd[DATA] &= ~(7 << 12);
+	//		gpd[DATA] |= i << 12;
+	//		
+	//		printf("after reset, %04x\n", gpd[DATA]);
+	//	}
 	
 	gpd[DATA] |= 1 << 8;	//enable, RESET high
 	gpd[DATA] &= ~(1 << 10);	//start counting, COUNT low
 	
-//	printf("manually counting...\n");
-//	for (i=0; i<30; i++) {	
-//		gpd[DATA] |= 1 << 11;
-//		gpd[DATA] &= ~(1 << 11);
-//		gpd[DATA] |= 1 << 11;
-//		gpd[DATA] &= ~(1 << 11);
-//	}
-//	waitForButton(gpg+DATA, 8);
-//	while (gpg[DATA] & 1 << 8);
+	//	printf("manually counting...\n");
+	//	for (i=0; i<30; i++) {	
+	//		gpd[DATA] |= 1 << 11;
+	//		gpd[DATA] &= ~(1 << 11);
+	//		gpd[DATA] |= 1 << 11;
+	//		gpd[DATA] &= ~(1 << 11);
+	//	}
+	//	waitForButton(gpg+DATA, 8);
+	//	while (gpg[DATA] & 1 << 8);
 	
 	
 	sleep(1);		//wait for the counters to be stable
@@ -208,12 +208,12 @@ int main(int argc, char *argv[]) {
 	
 	//relay off, touching the registers should not burn me now
 	gpd[DATA] |= 1 << 10;
-
+	
 	
 	lcd_clrscr();
 	lcd_gotoxy(0, 0);
 	lcd_puts("Done!");
-
+	
 	/**
 	 *	sort()
 	 */
@@ -223,7 +223,7 @@ int main(int argc, char *argv[]) {
 	for (i=0; i<4; i++) {
 		adapter_print(adp[i]);
 	}
-		
+	
 	/**
 	 *	change leds
 	 */
@@ -256,5 +256,5 @@ int main(int argc, char *argv[]) {
 	}
 	
 	return 0;
-
+	
 }

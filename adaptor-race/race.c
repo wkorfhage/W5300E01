@@ -23,6 +23,8 @@ char buf[256];
 Adapter adapters[4];
 Adapter *adp[4];
 
+vuint32 *gpio, *gpc, *gpd, *gpg;
+
 struct  sockaddr_in sad; /* structure to hold an IP address     */
 int     clientSocket;    /* socket descriptor                   */ 
 struct  hostent  *ptrh;  /* pointer to a host table entry       */
@@ -60,6 +62,70 @@ void send_record(const char* record) {
 	close(clientSocket);
 }
 
+void run_race() {
+	gpd[DATA] = 0;
+	gpd[DATA] |= 1 << 10;	//stop counting, COUNT high
+	gpd[DATA] &= ~(1 << 8);	//reset, RESET low
+	usleep(500000);				//wait for the registers to discharge
+	
+	//	gpd[DATA] |= 1 << 9;	//clock into reg.
+	//	gpd[DATA] &= ~(1 << 9);
+	//	gpd[DATA] |= 1 << 9;	//clock into reg.
+	//	gpd[DATA] &= ~(1 << 9);
+	
+	//	for (i=0; i<8; i++) {
+	//		gpd[DATA] &= ~(7 << 12);
+	//		gpd[DATA] |= i << 12;
+	//		
+	//		printf("after reset, %04x\n", gpd[DATA]);
+	//	}
+	
+	gpd[DATA] |= 1 << 8;	//enable, RESET high
+	gpd[DATA] &= ~(1 << 10);	//start counting, COUNT low
+	
+	//	printf("manually counting...\n");
+	//	for (i=0; i<30; i++) {	
+	//		gpd[DATA] |= 1 << 11;
+	//		gpd[DATA] &= ~(1 << 11);
+	//		gpd[DATA] |= 1 << 11;
+	//		gpd[DATA] &= ~(1 << 11);
+	//	}
+	//	waitForButton(gpg+DATA, 8);
+	//	while (gpg[DATA] & 1 << 8);
+	
+	/**
+	 *	read if connected
+	 */
+	//	while (1) {
+	//		printf("%x\n", gpc[DATA]);
+	//	}
+	
+	sleep(1);		//wait for the counters to be stable
+	
+	gpd[DATA] |= 1 << 9;
+	gpd[DATA] &= ~(1 << 9);
+	
+	for (i = 0; i < 4; i++) {
+		int c = 0;
+		
+		gpd[DATA] &= ~(7 << 12);
+		gpd[DATA] |= (2*i) << 12;
+		c |= gpd[DATA] & 0xFF;
+		
+		gpd[DATA] &= ~(7 << 12);
+		gpd[DATA] |= (2*i+1) << 12;
+		c |= (gpd[DATA] & 0xFF) << 8;
+		
+		adp[i]->count = c;
+	}
+	
+	//relay off, touching the registers should not burn me now
+	gpd[DATA] |= 1 << 10;
+	
+	
+	
+}
+
 int main(int argc, char *argv[]) {
 	
 	
@@ -69,10 +135,10 @@ int main(int argc, char *argv[]) {
 		adp[i]->position = i;
 	}
 	
-	vuint32 *gpio = get_gpio_base();
-	vuint32 *gpc = gpio + GPC_OFFSET;
-	vuint32 *gpd = gpio + GPD_OFFSET;
-	vuint32 *gpg = gpio + GPG_OFFSET;
+	gpio = get_gpio_base();
+	gpc = gpio + GPC_OFFSET;
+	gpd = gpio + GPD_OFFSET;
+	gpg = gpio + GPG_OFFSET;
 	
 	gpc[CON] = 0x55550000;
 	gpd[CON] = 0x55550000;
@@ -114,6 +180,7 @@ int main(int argc, char *argv[]) {
 	//TODO check network
 	
 	/* 
+	 *	Initial setup
 	 *	connect adapters, input names
 	 */
 	for (i=0; i<4; i++) {
@@ -164,65 +231,7 @@ int main(int argc, char *argv[]) {
 	/*
 	 *	start the timer, run the race
 	 */
-	
-	gpd[DATA] = 0;
-	gpd[DATA] |= 1 << 10;	//stop counting, COUNT high
-	gpd[DATA] &= ~(1 << 8);	//reset, RESET low
-	usleep(500000);				//wait for the registers to discharge
-	
-	//	gpd[DATA] |= 1 << 9;	//clock into reg.
-	//	gpd[DATA] &= ~(1 << 9);
-	//	gpd[DATA] |= 1 << 9;	//clock into reg.
-	//	gpd[DATA] &= ~(1 << 9);
-	
-	//	for (i=0; i<8; i++) {
-	//		gpd[DATA] &= ~(7 << 12);
-	//		gpd[DATA] |= i << 12;
-	//		
-	//		printf("after reset, %04x\n", gpd[DATA]);
-	//	}
-	
-	gpd[DATA] |= 1 << 8;	//enable, RESET high
-	gpd[DATA] &= ~(1 << 10);	//start counting, COUNT low
-	
-	//	printf("manually counting...\n");
-	//	for (i=0; i<30; i++) {	
-	//		gpd[DATA] |= 1 << 11;
-	//		gpd[DATA] &= ~(1 << 11);
-	//		gpd[DATA] |= 1 << 11;
-	//		gpd[DATA] &= ~(1 << 11);
-	//	}
-	//	waitForButton(gpg+DATA, 8);
-	//	while (gpg[DATA] & 1 << 8);
-	
-	/**
-	 *	read if connected
-	 */
-//	while (1) {
-//		printf("%x\n", gpc[DATA]);
-//	}
-	
-	sleep(1);		//wait for the counters to be stable
-	
-	gpd[DATA] |= 1 << 9;
-	gpd[DATA] &= ~(1 << 9);
-	
-	for (i = 0; i < 4; i++) {
-		int c = 0;
-		
-		gpd[DATA] &= ~(7 << 12);
-		gpd[DATA] |= (2*i) << 12;
-		c |= gpd[DATA] & 0xFF;
-		
-		gpd[DATA] &= ~(7 << 12);
-		gpd[DATA] |= (2*i+1) << 12;
-		c |= (gpd[DATA] & 0xFF) << 8;
-		
-		adp[i]->count = c;
-	}
-	
-	//relay off, touching the registers should not burn me now
-	gpd[DATA] |= 1 << 10;
+	run_race();
 	
 	
 	lcd_clrscr();
@@ -328,66 +337,7 @@ int main(int argc, char *argv[]) {
 		/*
 		 *	start the timer, run the race
 		 */
-		
-		gpd[DATA] = 0;
-		gpd[DATA] |= 1 << 10;	//stop counting, COUNT high
-		gpd[DATA] &= ~(1 << 8);	//reset, RESET low
-		usleep(500000);				//wait for the registers to discharge
-		
-		//	gpd[DATA] |= 1 << 9;	//clock into reg.
-		//	gpd[DATA] &= ~(1 << 9);
-		//	gpd[DATA] |= 1 << 9;	//clock into reg.
-		//	gpd[DATA] &= ~(1 << 9);
-		
-		//	for (i=0; i<8; i++) {
-		//		gpd[DATA] &= ~(7 << 12);
-		//		gpd[DATA] |= i << 12;
-		//		
-		//		printf("after reset, %04x\n", gpd[DATA]);
-		//	}
-		
-		gpd[DATA] |= 1 << 8;	//enable, RESET high
-		gpd[DATA] &= ~(1 << 10);	//start counting, COUNT low
-		
-		//	printf("manually counting...\n");
-		//	for (i=0; i<30; i++) {	
-		//		gpd[DATA] |= 1 << 11;
-		//		gpd[DATA] &= ~(1 << 11);
-		//		gpd[DATA] |= 1 << 11;
-		//		gpd[DATA] &= ~(1 << 11);
-		//	}
-		//	waitForButton(gpg+DATA, 8);
-		//	while (gpg[DATA] & 1 << 8);
-		
-		/**
-		 *	read if connected
-		 */
-		//	while (1) {
-		//		printf("%x\n", gpc[DATA]);
-		//	}
-		
-		sleep(1);		//wait for the counters to be stable
-		
-		gpd[DATA] |= 1 << 9;
-		gpd[DATA] &= ~(1 << 9);
-		
-		for (i = 0; i < 4; i++) {
-			int c = 0;
-			
-			gpd[DATA] &= ~(7 << 12);
-			gpd[DATA] |= (2*i) << 12;
-			c |= gpd[DATA] & 0xFF;
-			
-			gpd[DATA] &= ~(7 << 12);
-			gpd[DATA] |= (2*i+1) << 12;
-			c |= (gpd[DATA] & 0xFF) << 8;
-			
-			adp[i]->count = c;
-		}
-		
-		//relay off, touching the registers should not burn me now
-		gpd[DATA] |= 1 << 10;
-		
+		run_race();
 		
 		lcd_clrscr();
 		lcd_gotoxy(0, 0);

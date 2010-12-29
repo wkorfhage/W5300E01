@@ -113,7 +113,7 @@ char lcd_init(void)
   return 1;
 }
 
-void lcd_gotoxy(unsigned char x,	unsigned char y)
+void lcd_gotoxy(unsigned char x, unsigned char y)
 {
   lcd_ready();
   switch(y)

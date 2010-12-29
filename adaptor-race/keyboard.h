@@ -10,8 +10,8 @@
  *
  */
 
-#ifndef __KEYBOARDREAD_NTKN__
-#define __KEYBOARDREAD_NTKN__
+#ifndef __NTKN_KEYPAD__
+#define __NTKN_KEYPAD__
 
 
 int init_keyboard(const char* device);

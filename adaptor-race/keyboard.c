@@ -17,7 +17,7 @@
 
 #include "ntkn_w5300e01.h"
 #include "charlib.h"
-#include "keyboardread.h"
+#include "keyboard.h"
 
 static int keyboard_fd;
 

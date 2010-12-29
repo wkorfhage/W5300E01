@@ -11,10 +11,11 @@
 #include "ntkn_w5300e01.h"
 #include "button.h"
 #include "gpio.h"
-#include "keyboardread.h"
+#include "keyboard.h"
 #include "charlib.h"
 #include "leds_ctrl.h"
 #include "adapter.h"
+#include "rtc.h"
 
 int i, n;
 char buf[256];
@@ -89,6 +90,14 @@ int main(int argc, char *argv[]) {
 	
 	charinit();
 	
+	init_rtc();
+	read_rtc(buf, 100);
+	printf("%s\n", buf);
+	
+	set_rtc("12-28-10 23:21:33 2", 100);
+	read_rtc(buf, 100);
+	printf("%s\n", buf);
+	
 	//TODO check USB
 	i = mknod("/dev/kb0", S_IFCHR, MKDEV(252, 0));
 	printf("mknod returned %d\n", i);
@@ -159,7 +168,7 @@ int main(int argc, char *argv[]) {
 	gpd[DATA] = 0;
 	gpd[DATA] |= 1 << 10;	//stop counting, COUNT high
 	gpd[DATA] &= ~(1 << 8);	//reset, RESET low
-	sleep(1);				//wait for the registers to discharge
+	usleep(500000);				//wait for the registers to discharge
 	
 	//	gpd[DATA] |= 1 << 9;	//clock into reg.
 	//	gpd[DATA] &= ~(1 << 9);

@@ -7,7 +7,7 @@ void adapter_init(Adapter *adpt) {
 	adpt->on = 0;
 	adpt->name[0] = 0;
 	adpt->position = -1;
-	adpt->count = -1;
+	adpt->count = 0xFFFF;
 }
 
 /**

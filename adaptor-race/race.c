@@ -20,6 +20,7 @@
 
 int i, j, n;
 char buf[256];
+char logfile[] = "/mnt/jffs2/race.log";
 
 Adapter adapters[4];
 Adapter *adp[4];
@@ -258,11 +259,21 @@ int main(int argc, char *argv[]) {
 	sprintf(buf, "Tell me the time");
 	if (time_from_server(buf) != 0) {
 		//failed to connect to server
+		lcd_clrscr();
+		lcd_gotoxy(0, 0);
+		lcd_puts("Connect Failed");
+		lcd_gotoxy(0, 1);
+		lcd_puts("Input Time ");
+		readFromUSBKeyboard(buf, 1);
 		time_from_keyboard(buf);
 		set_rtc(buf, 100);
 	} else { //succeeded
 		set_rtc(buf, 100);
 	}
+
+	//open log file for writing
+	FILE *logfp = fopen(logfile, "a+");
+	fprintf(stderr, "log file is: %x", logfp);
 
 	/* 
 	 *	Initial setup
@@ -351,6 +362,8 @@ int main(int argc, char *argv[]) {
 		read_rtc(buf + 20, 20);
 		sprintf(buf, "%s, %s, %d, %d, %d", buf+20, adp[i]->name, adp[i]->count, adp[i]->count - min_count, i);
 		send_record(buf);
+		fprintf(logfp, "%s\n", buf);
+		fflush(logfp);
 	}
 
 	while (1) {
@@ -444,6 +457,8 @@ int main(int argc, char *argv[]) {
 			read_rtc(buf + 20, 20);
 			sprintf(buf, "%s, %s, %d, %d, %d", buf+20, adp[i]->name, adp[i]->count, adp[i]->count - min_count, i);
 			send_record(buf);
+			fprintf(logfp, "%s\n", buf);
+			fflush(logfp);
 		}
 
 	}

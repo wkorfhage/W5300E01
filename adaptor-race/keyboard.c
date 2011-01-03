@@ -101,7 +101,7 @@ int readFromUSBKeyboard(char* name, int length) {
 			name[count++] = x;
 			lcd_putch(x);
 
-			printf("%c, %d\n", x, x);
+			fprintf(stderr, "%c, %d\n", x, x);
 		}
 
 	}
@@ -110,8 +110,6 @@ int readFromUSBKeyboard(char* name, int length) {
 
 	//Disable the cursor.
 	lcd_set_cursor_type(0);
-
-	// printf("\nread from keyboard: %s\n", name);
 
 	return count;
 }

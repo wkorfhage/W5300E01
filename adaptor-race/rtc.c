@@ -15,7 +15,7 @@ int init_rtc() {
 	// Open memory
 	int rtc_fd = open("/dev/mem", O_RDWR | O_SYNC);
 	if (rtc_fd < 0) {
-		printf("cannot open /dev/mem for RTC");
+		fprintf(stderr, "cannot open /dev/mem for RTC");
 		exit(-1);
 	}
 	
@@ -44,9 +44,9 @@ int read_rtc(char *buf, int length) {
 	mm = rtc[0x34 / 4];
 	hh = rtc[0x38 / 4];
 	
-	printf("20%02x-%02x-%02x %02x:%02x:%02x\n", year, month, date, hh, mm, ss);
+	fprintf(stderr, "20%02x-%02x-%02x %02x:%02x:%02x\n", year, month, date, hh, mm, ss);
 	
-	sprintf(buf, "20%02x-%02x-%02x %02x:%02x:%02x\n", year, month, date, hh, mm, ss);
+	sprintf(buf, "20%02x-%02x-%02x %02x:%02x:%02x", year, month, date, hh, mm, ss);
 	
 	return 0;
 }

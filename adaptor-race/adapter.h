@@ -2,6 +2,7 @@
 #define __NTKN_ADAPTER__
 
 typedef struct {
+	char on;	//whether an adapter is plugged in
 	char name[32];
 	int count;
 	int position;

@@ -136,7 +136,7 @@ void run_race() {
 	gpd[DATA] = 0;
 	gpd[DATA] |= 1 << 10; //stop counting, COUNT high
 	gpd[DATA] &= ~(1 << 8); //reset, RESET low
-	usleep(500000); //wait for the resistors to discharge
+	usleep(10000); //wait for the resistors to discharge
 
 	gpd[DATA] |= 1 << 8; //enable, RESET high
 	gpd[DATA] &= ~(1 << 10); //start counting, COUNT low
@@ -157,6 +157,7 @@ void run_race() {
 		gpd[DATA] |= (2 * i + 1) << 12;
 		c |= (gpd[DATA] & 0xFF) << 8;
 
+		adapters[i].on = gpc[DATA] & (1 << (i + 4));
 		adapters[i].count = c;
 	}
 

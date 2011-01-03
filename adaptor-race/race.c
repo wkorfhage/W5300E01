@@ -85,7 +85,7 @@ int time_from_server(char *buf) {
 	tv.tv_sec = 3;
 	tv.tv_usec = 0;
 
-	retval = select(clientSocket+1, &rfds, NULL, NULL, &tv);
+	retval = select(clientSocket + 1, &rfds, NULL, NULL, &tv);
 
 	if (retval) {
 		n = recvfrom(clientSocket, buf, strlen(buf) + 1, 0,
@@ -136,39 +136,10 @@ void run_race() {
 	gpd[DATA] = 0;
 	gpd[DATA] |= 1 << 10; //stop counting, COUNT high
 	gpd[DATA] &= ~(1 << 8); //reset, RESET low
-	usleep(500000); //wait for the registers to discharge
-
-	//	gpd[DATA] |= 1 << 9;	//clock into reg.
-	//	gpd[DATA] &= ~(1 << 9);
-	//	gpd[DATA] |= 1 << 9;	//clock into reg.
-	//	gpd[DATA] &= ~(1 << 9);
-
-	//	for (i=0; i<8; i++) {
-	//		gpd[DATA] &= ~(7 << 12);
-	//		gpd[DATA] |= i << 12;
-	//		
-	//		printf("after reset, %04x\n", gpd[DATA]);
-	//	}
+	usleep(500000); //wait for the resistors to discharge
 
 	gpd[DATA] |= 1 << 8; //enable, RESET high
 	gpd[DATA] &= ~(1 << 10); //start counting, COUNT low
-
-	//	printf("manually counting...\n");
-	//	for (i=0; i<30; i++) {	
-	//		gpd[DATA] |= 1 << 11;
-	//		gpd[DATA] &= ~(1 << 11);
-	//		gpd[DATA] |= 1 << 11;
-	//		gpd[DATA] &= ~(1 << 11);
-	//	}
-	//	waitForButton(gpg+DATA, 8);
-	//	while (gpg[DATA] & 1 << 8);
-
-	/**
-	 *	read if connected
-	 */
-	//	while (1) {
-	//		printf("%x\n", gpc[DATA]);
-	//	}
 
 	sleep(1); //wait for the counters to be stable
 
@@ -225,10 +196,6 @@ int main(int argc, char *argv[]) {
 	init_rtc();
 	read_rtc(buf, 100);
 	fprintf(stderr, "%s\n", buf);
-
-	//	set_rtc("12-28-10 23:21:33 2", 100);
-	//	read_rtc(buf, 100);
-	//	printf("%s\n", buf);
 
 	//TODO check USB
 	i = mknod("/dev/kb0", S_IFCHR, MKDEV(252, 0));
@@ -291,8 +258,23 @@ int main(int argc, char *argv[]) {
 		lcd_gotoxy(0, 1);
 		lcd_puts("then hit Button");
 
+		//wait for button
 		while ((gpc[DATA] & (1 << i)) == 0)
 			;
+
+		gpd[DATA] &= ~(1 << 10); //relay on
+		usleep(10000);
+		adapters[i].on = gpc[DATA] & (1 << (i + 4));
+		gpd[DATA] |= 1 << 10; //relay off
+		if (adapters[i].on) {
+
+		} else {
+			color &= ~(3 << (i * 2)); //clear led[i]
+			blink &= ~(3 << (i * 2)); //NO BLINKING
+			color |= 2 << (i * 2); //RED
+
+			continue;
+		}
 
 		color |= 3 << (i * 2); //ORANGE
 		blink |= 3 << (i * 2); //BLINKING
@@ -348,7 +330,7 @@ int main(int argc, char *argv[]) {
 	blink = 0; //NO BLINK
 	color = 0; //OFF
 	for (i = 0; i < 4; i++) {
-		if (i < 2) { //fast, green
+		if (i < 2 && adp[i]->on) { //fast and connected, green
 			color |= 1 << (2 * (adp[i]->position));
 		} else { //slow, red
 			color |= 2 << (2 * (adp[i]->position));
@@ -386,8 +368,23 @@ int main(int argc, char *argv[]) {
 			lcd_gotoxy(0, 1);
 			lcd_puts("Then Hit Button");
 
+			//wait for button
 			while ((gpc[DATA] & (1 << i)) == 0)
 				;
+
+			gpd[DATA] &= ~(1 << 10); //relay on
+			usleep(10000);
+			adapters[i].on = gpc[DATA] & (1 << (i + 4));
+			gpd[DATA] |= 1 << 10; //relay off
+			if (adapters[i].on) {
+
+			} else {
+				color &= ~(3 << (i * 2)); //clear led[i]
+				blink &= ~(3 << (i * 2)); //NO BLINKING
+				color |= 2 << (i * 2); //RED
+
+				continue;
+			}
 
 			color |= 3 << (i * 2); //ORANGE
 			blink |= 3 << (i * 2); //BLINKING
@@ -443,7 +440,7 @@ int main(int argc, char *argv[]) {
 		blink = 0; //NO BLINK
 		color = 0; //OFF
 		for (i = 0; i < 4; i++) {
-			if (i < 2) { //fast, green
+			if (i < 2 && adp[i]->on) { //fast and connected, green
 				color |= 1 << (2 * (adp[i]->position));
 			} else { //slow, red
 				color |= 2 << (2 * (adp[i]->position));

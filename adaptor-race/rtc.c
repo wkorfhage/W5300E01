@@ -35,19 +35,18 @@ int init_rtc() {
 int read_rtc(char *buf, int length) {
 	int month, date, year;
 	int hh, mm, ss;
-	int weekday;
 	
 	date = rtc[0x3c / 4];
 	month = rtc[0x44 / 4];
 	year = rtc[0x48 / 4];
-	weekday = rtc[0x40 / 4];
+
 	ss = rtc[0x30 / 4];
 	mm = rtc[0x34 / 4];
 	hh = rtc[0x38 / 4];
 	
-	printf("%x-%x-%x (%x) %x:%x:%x\n", month, date, year, weekday, hh, mm, ss);
+	printf("20%02x-%02x-%02x %02x:%02x:%02x\n", year, month, date, hh, mm, ss);
 	
-	sprintf(buf, "%x-%x-%x (%x) %x:%x:%x\n", month, date, year, weekday, hh, mm, ss);
+	sprintf(buf, "20%02x-%02x-%02x %02x:%02x:%02x\n", year, month, date, hh, mm, ss);
 	
 	return 0;
 }
@@ -56,9 +55,8 @@ int set_rtc(const char* buf, int length) {
 
 	int month, date, year;
 	int hh, mm, ss;
-	int weekday;
 	
-	sscanf(buf, "%d-%d-%d %d:%d:%d %d", &month, &date, &year, &hh, &mm, &ss, &weekday);
+	sscanf(buf, "20%d-%d-%d %d:%d:%d.", &year, &month, &date, &hh, &mm, &ss);
 	rtc[0x3c / 4] = date / 10 << 4 | date % 10;
 	rtc[0x44 / 4] = month / 10 << 4 | month % 10;
 	rtc[0x48 / 4] = (year % 100 / 10) << 4 | year % 10;
@@ -67,8 +65,7 @@ int set_rtc(const char* buf, int length) {
 	rtc[0x34 / 4] = mm / 10 << 4 | mm % 10;
 	rtc[0x38 / 4] = hh / 10 << 4 | hh % 10;
 	
-	rtc[0x40 / 4] = weekday;
-	
+	return 0;
 }
 
 int close_rtc() {

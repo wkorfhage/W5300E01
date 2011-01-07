@@ -48,6 +48,25 @@ int main(int argc, char* argv[]) {
 
 	vuint32 *gpd = gpio + 0x30 / 4;
 	gpd[CON] = 0x55550000;
+
+	char buf[128];
+	while (1) {
+		printf("<enter> to display gpd[DATA], <pin> <0/1> to set\n");
+		fgets(buf, 120, stdin);
+		if (strcmp(buf, "\n") == 0) {
+			printf("gpd[DATA] = %x\n", gpd[DATA]);
+		} else {
+			int pin, value;
+			sscanf(buf, "%d %d", &pin, &value);
+			printf("%d %d\n", pin, value);
+			if (value) {
+				gpd[DATA] |= 1 << pin;
+			} else {
+				gpd[DATA] &= ~(1 << pin);
+			}
+		}
+	}
+
 	gpd[DATA] = 0;			//reset
 	gpd[DATA] = 5 << 8;		//start counting (~RESET and START_COUNTING set to 1)
 	

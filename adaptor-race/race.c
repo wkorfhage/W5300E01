@@ -19,6 +19,7 @@
 #include "rtc.h"
 
 int i, j, n;
+int skip;
 char buf[256];
 char logfile[] = "/mnt/jffs2/race.log";
 
@@ -136,7 +137,7 @@ void run_race() {
 	gpd[DATA] = 0;
 	gpd[DATA] |= 1 << 10; //stop counting, COUNT high
 	gpd[DATA] &= ~(1 << 8); //reset, RESET low
-	usleep(10000); //wait for the resistors to discharge
+	usleep(500000); //wait for the resistors to discharge
 
 	gpd[DATA] |= 1 << 8; //enable, RESET high
 	gpd[DATA] &= ~(1 << 10); //start counting, COUNT low
@@ -241,13 +242,16 @@ int main(int argc, char *argv[]) {
 
 	//open log file for writing
 	FILE *logfp = fopen(logfile, "a+");
-	fprintf(stderr, "log file is: %x", logfp);
+	fprintf(stderr, "log file is: %x\n", logfp);
 
 	/* 
 	 *	Initial setup
 	 *	connect adapters, input names
 	 */
 	for (i = 0; i < 4; i++) {
+		//initialize adapters
+		adapter_init(adapters + i);
+
 		color &= ~(3 << (i * 2)); //clear led[i]
 		blink &= ~(3 << (i * 2));
 		color |= 2 << (i * 2); //RED
@@ -255,21 +259,37 @@ int main(int argc, char *argv[]) {
 
 		lcd_clrscr();
 		lcd_gotoxy(0, 0);
-		lcd_puts("Install PowerSPL");
-		lcd_gotoxy(0, 1);
-		lcd_puts("then hit Button");
+		lcd_puts("Install Power Supply");
 
-		//wait for button
-		while ((gpc[DATA] & (1 << i)) == 0)
-			;
+		//		int done = 0;
 
-		gpd[DATA] &= ~(1 << 10); //relay on
-		usleep(10000);
-		adapters[i].on = gpc[DATA] & (1 << (i + 4));
-		gpd[DATA] |= 1 << 10; //relay off
+		//wait for button OR plug
+		while (gpc[DATA] & (1 << i)) {
+			gpd[DATA] &= ~(1 << 10); //relay on
+			usleep(10000);
+			adapters[i].on = gpc[DATA] & (1 << (i + 4));
+			gpd[DATA] |= 1 << 10; //relay off
+			usleep(100000);
+
+			if (adapters[i].on) {
+				break;
+			}
+
+			//			done = (gpc[DATA] & 0xF) != 0xF;
+			//			printf("%x, %x\n", gpc[DATA], done);
+			//			if (done) {
+			//				break;
+			//			}
+		}
+
+		//		if (done) {
+		//			break;
+		//		}
+
 		if (adapters[i].on) {
 
 		} else {
+			adapters[i].name[0] = 0;
 			color &= ~(3 << (i * 2)); //clear led[i]
 			blink &= ~(3 << (i * 2)); //NO BLINKING
 			color |= 2 << (i * 2); //RED
@@ -365,21 +385,55 @@ int main(int argc, char *argv[]) {
 
 			lcd_clrscr();
 			lcd_gotoxy(0, 0);
-			lcd_puts("Replace P.S.");
-			lcd_gotoxy(0, 1);
-			lcd_puts("Then Hit Button");
+			lcd_puts("Replace Power Supply");
 
-			//wait for button
-			while ((gpc[DATA] & (1 << i)) == 0)
-				;
+			//wait for removal
+			skip = 0;
+			//if it's on, wait until it's removed, or hit button to skip
+			while (!skip) {
+				//if button pressed, skip
+				skip = ((gpc[DATA] & (1 << i)) == 0);
+				//				printf("in 1st while()\n");
 
-			gpd[DATA] &= ~(1 << 10); //relay on
-			usleep(10000);
-			adapters[i].on = gpc[DATA] & (1 << (i + 4));
-			gpd[DATA] |= 1 << 10; //relay off
-			if (adapters[i].on) {
+				gpd[DATA] &= ~(1 << 10);
+				usleep(10000);
+
+				adapters[i].on = gpc[DATA] & (1 << (i + 4));
+				gpd[DATA] |= 1 << 10; //relay off
+				usleep(100000);
+
+				//power supply plugged, continue
+				if (adapters[i].on == 0) {
+					break;
+				}
+
+			}
+
+			usleep(100000);
+
+			//wait to be plugged, or button pressed, or hit button to skip
+			while (!skip) {
+				//if button pressed, skip
+				skip = (gpc[DATA] & (1 << i) == 0);
+				//				printf("in 2nd loop\n");
+				gpd[DATA] &= ~(1 << 10);
+				usleep(10000);
+
+				adapters[i].on = gpc[DATA] & (1 << (i + 4));
+				gpd[DATA] |= 1 << 10; //relay off
+				usleep(100000);
+
+				//power supply plugged, continue
+				if (adapters[i].on) {
+					break;
+				}
+
+			}
+
+			if (!skip) {
 
 			} else {
+				adapters[i].name[0] = 0;
 				color &= ~(3 << (i * 2)); //clear led[i]
 				blink &= ~(3 << (i * 2)); //NO BLINKING
 				color |= 2 << (i * 2); //RED

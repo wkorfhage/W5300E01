@@ -6,7 +6,7 @@
 void adapter_init(Adapter *adpt) {
 	adpt->on = 0;
 	adpt->name[0] = 0;
-	adpt->position = -1;
+	//	adpt->position = -1;
 	adpt->count = 0xFFFF;
 }
 
@@ -24,7 +24,7 @@ void adapter_sort(Adapter **list) {
 	int i;
 	for (i = 0; i < 4; i++) {
 		//make sure the count is max when absent
-		if (list[i]->on == 0) {
+		if ((list[i]->on == 0) || (list[i]->name[0] == 0)) {
 			list[i]->count = 0xFFFF;
 		}
 	}

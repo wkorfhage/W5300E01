@@ -18,14 +18,15 @@
 #include "adapter.h"
 #include "rtc.h"
 
-int i, j, n;
-int skip;
 char buf[256];
 char time_buf[32];
 char logfile[] = "/mnt/jffs2/race.log";
+char calibrefile[] = "/mnt/jffs2/offset.clb";
 
 Adapter adapters[4];
 Adapter *adp[4];
+int offset[4];
+unsigned long count_sum[4];
 
 vuint32 *gpio, *gpc, *gpd, *gpg;
 
@@ -33,7 +34,7 @@ struct sockaddr_in sad; /* structure to hold an IP address     */
 int clientSocket; /* socket descriptor                   */
 struct hostent *ptrh; /* pointer to a host table entry       */
 
-char *host = "192.168.1.2"; /* pointer to host name	*/
+char *host = "50.16.187.107"; /* pointer to host name	*/
 int port = 5000; /* protocol port number	*/
 
 int time_from_keyboard(char *buf) {
@@ -69,8 +70,8 @@ int time_from_server(char *buf) {
 	memcpy(&sad.sin_addr, ptrh->h_addr, ptrh->h_length);
 
 	/* Send the sentence to the server  */
-	n = sendto(clientSocket, buf, strlen(buf) + 1, 0, (struct sockaddr *) &sad,
-			sizeof(struct sockaddr));
+	int n = sendto(clientSocket, buf, strlen(buf) + 1, 0,
+			(struct sockaddr *) &sad, sizeof(struct sockaddr));
 	fprintf(stderr, "Client sent %d bytes to the server\n", n);
 
 	fd_set rfds;
@@ -121,7 +122,7 @@ void send_record(const char* record) {
 	memcpy(&sad.sin_addr, ptrh->h_addr, ptrh->h_length);
 
 	/* Send the sentence to the server  */
-	n = sendto(clientSocket, record, strlen(record) + 1, 0,
+	int n = sendto(clientSocket, record, strlen(record) + 1, 0,
 			(struct sockaddr *) &sad, sizeof(struct sockaddr));
 	fprintf(stderr, "Client sent %d bytes to the server\n", n);
 	/* Close the socket. */
@@ -133,7 +134,7 @@ void run_race() {
 	gpd[DATA] = 0;
 	gpd[DATA] |= 1 << 10; //stop counting, COUNT high
 	gpd[DATA] &= ~(1 << 8); //reset, RESET low
-	usleep(500000); //wait for the resistors to discharge
+	usleep(20000); //wait for the resistors to discharge
 
 	gpd[DATA] |= 1 << 8; //enable, RESET high
 	gpd[DATA] &= ~(1 << 10); //start counting, COUNT low
@@ -143,6 +144,7 @@ void run_race() {
 	gpd[DATA] |= 1 << 9;
 	gpd[DATA] &= ~(1 << 9);
 
+	int i;
 	for (i = 0; i < 4; i++) {
 		int c = 0;
 
@@ -155,7 +157,7 @@ void run_race() {
 		c |= (gpd[DATA] & 0xFF) << 8;
 
 		adapters[i].on = gpc[DATA] & (1 << (i + 4));
-		adapters[i].count = c;
+		adapters[i].count = c + offset[i];
 	}
 
 	//relay off, touching the registers should not burn me now
@@ -166,6 +168,7 @@ void run_race() {
 int main(int argc, char *argv[]) {
 
 	fprintf(stderr, "initializing...\n");
+	int i;
 	for (i = 0; i < 4; i++) {
 		adp[i] = adapters + i;
 		adp[i]->position = i;
@@ -246,6 +249,20 @@ int main(int argc, char *argv[]) {
 	FILE *logfp = fopen(logfile, "a+");
 	fprintf(stderr, "log file is: %x\n", logfp);
 
+	//open calibration file for reading
+
+	FILE *calibrefp = fopen(calibrefile, "r");
+	if (calibrefp) {
+		//reverse the order: 1 2 3 4 -->> 3 2 1 0
+		fscanf(calibrefp, "%d %d %d %d", offset + 3, offset + 2, offset + 1,
+				offset);
+		fclose(calibrefp);
+	}
+
+	for (i = 0; i < 4; i++) {
+		printf("Offset ====== %d\n", offset[i]);
+	}
+
 	/* 
 	 *	Initial setup
 	 *	connect adapters, input names
@@ -324,18 +341,69 @@ int main(int argc, char *argv[]) {
 		//		printf("button: %x\n", gpc[DATA]);
 
 		if ((gpc[DATA] & 0xF) != 0xF) {
-			lcd_clrscr();
-			lcd_gotoxy(0, 0);
-			lcd_puts("Running Race ...");
+			do { //repeat if the input is not a valid number
+				lcd_clrscr();
+				lcd_gotoxy(0, 0);
+				lcd_puts("How many to run?");
+				lcd_gotoxy(0, 1);
+				lcd_puts(">");
+				readFromUSBKeyboard(buf, 8);
+			} while (buf[0] < '0' || buf[0] > '9');
+			int run_count = atoi(buf);
 
-			run_race();
+			//reset count_sum
+			for (i = 0; i < 4; i++) {
+				count_sum[i] = 0;
+			}
+
+			for (i = 0; i < run_count; i++) {
+				sprintf(buf, "%d/%d", i+1, run_count);
+				lcd_clrscr();
+				lcd_gotoxy(0, 0);
+				lcd_puts("Running Race");
+				lcd_gotoxy(0, 1);
+				lcd_puts(buf);
+				run_race();
+
+				int j;
+				for (j = 0; j < 4; j++) {
+					count_sum[j] += adapters[j].count;
+				}
+
+				/**
+				 *	sort() individual
+				 */
+				adapter_sort(adp);
+
+				fprintf(stderr, "after sorting (individual)\n");
+				for (j = 0; j < 4; j++) {
+					adapter_print(adp[j]);
+				}
+
+				read_rtc(time_buf, 20);
+				for (j = 0; (j < 4) && (adp[j]->name[0] != 0); j++) {
+					//send to the server
+					sprintf(buf, "%s, %s, %d, %d, %d", time_buf, adp[j]->name, adp[j]->count, adp[j]->count - adp[0]->count, j);
+					send_record(buf);
+
+					//write to the log file
+					fprintf(logfp, "%s\n", buf);
+					fflush(logfp);
+				}
+
+			}
 
 			/**
-			 *	sort()
+			 *	calculate average and the sort() again
 			 */
+
+			for (i = 0; i < 4; i++) {
+				adapters[i].count = count_sum[i] / run_count;
+			}
+
 			adapter_sort(adp);
 
-			fprintf(stderr, "after sorting\n");
+			fprintf(stderr, "after sorting (AVERAGE)\n");
 			for (i = 0; i < 4; i++) {
 				adapter_print(adp[i]);
 			}
@@ -354,7 +422,7 @@ int main(int argc, char *argv[]) {
 			}
 
 			lcd_clrscr();
-			read_rtc(time_buf, 20);
+
 			int min_count = adp[0]->count;
 
 			//write result to LCD
@@ -368,16 +436,6 @@ int main(int argc, char *argv[]) {
 				}
 				lcd_gotoxy(0, 3 - i);
 				lcd_puts(buf);
-			}
-
-			for (i = 0; (i < 4) && (adp[i]->name[0] != 0); i++) {
-				//send to the server
-				sprintf(buf, "%s, %s, %d, %d, %d", time_buf, adp[i]->name, adp[i]->count, adp[i]->count - min_count, i);
-				send_record(buf);
-
-				//write to the log file
-				fprintf(logfp, "%s\n", buf);
-				fflush(logfp);
 			}
 
 			lcd_gotoxy(17, 2);

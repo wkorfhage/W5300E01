@@ -4,7 +4,7 @@
 typedef struct {
 	char on;	//whether an adapter is plugged in
 	char name[32];
-	int count;
+	unsigned int count;
 	int position;
 } Adapter;
 

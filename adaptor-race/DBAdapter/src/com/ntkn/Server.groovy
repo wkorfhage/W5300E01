@@ -3,6 +3,8 @@ package com.ntkn
 import groovy.sql.Sql;
 import com.mysql.jdbc.jdbc2.optional.MysqlConnectionPoolDataSource;
 
+def log = GroovyLog.netInstance(Server.class)
+
 def dataSource = new MysqlConnectionPoolDataSource();
 dataSource.setUser("lqu")
 dataSource.setPassword("lqu")
@@ -18,6 +20,8 @@ buffer = ('\0' * 1024) as byte[]
 while(true) {
 	DatagramPacket incoming = new DatagramPacket(buffer, buffer.length)
 	socket.receive(incoming)
+
+	
 	String s = new String(incoming.data, 0, incoming.length)
 
 	if (s.startsWith("Tell me the time")) {
